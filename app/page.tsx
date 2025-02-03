@@ -6,9 +6,9 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,19 +25,26 @@ import {
   Music,
   ChevronLeft,
   ChevronRight,
+  Twitter,
+  Instagram,
+  Users,
+  Linkedin,
+  Briefcase,
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 
-const steps = [
+const platforms = [
+  { name: "Twitter", icon: <Twitter className="w-6 h-6" /> },
+  { name: "Instagram", icon: <Instagram className="w-6 h-6" /> },
+  { name: "Dating Sites", icon: <Users className="w-6 h-6" /> },
+  { name: "LinkedIn", icon: <Linkedin className="w-6 h-6" /> },
+];
+
+const baseSteps = [
   {
     title: "Let's start with the basics!",
     description: "Who are you?",
     icon: <Smile className="w-6 h-6" />,
-  },
-  {
-    title: "Time to spice things up!",
-    description: "What's your flavor of funny?",
-    icon: <Coffee className="w-6 h-6" />,
   },
   {
     title: "Personality check!",
@@ -61,6 +68,37 @@ const steps = [
   },
 ];
 
+const platformSpecificSteps = {
+  Twitter: [
+    {
+      title: "Hashtag game strong",
+      description: "Pick your favorite hashtags",
+      icon: <Coffee className="w-6 h-6" />,
+    },
+  ],
+  Instagram: [
+    {
+      title: "Visual storyteller",
+      description: "Describe your Instagram aesthetic",
+      icon: <Camera className="w-6 h-6" />,
+    },
+  ],
+  "Dating Sites": [
+    {
+      title: "Relationship goals",
+      description: "What are you looking for?",
+      icon: <Heart className="w-6 h-6" />,
+    },
+  ],
+  LinkedIn: [
+    {
+      title: "Professional journey",
+      description: "Highlight your career path",
+      icon: <Briefcase className="w-6 h-6" />,
+    },
+  ],
+};
+
 const taglines = [
   "Your Bio, Your Story – Let's Tell It Right!",
   "Crafting the Perfect You in Words",
@@ -69,103 +107,146 @@ const taglines = [
 ];
 
 export default function BioGenerator() {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(-1); // Start at -1 for platform selection
+  const [selectedPlatform, setSelectedPlatform] = useState("");
   const [formData, setFormData] = useState({
+    platform: "",
     gender: "",
-    humor: [],
     personality: [],
     passions: [],
     hobbies: "",
     tone: "",
+    // Platform-specific fields
+    hashtags: [],
+    aesthetic: "",
+    relationshipGoals: "",
+    careerPath: "",
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedBios, setGeneratedBios] = useState<string[]>([]);
-  const [ copied, setCopied ] = useState(false);
+
+  const steps = selectedPlatform
+    ? [
+        ...baseSteps,
+        ...(platformSpecificSteps[
+          selectedPlatform as keyof typeof platformSpecificSteps
+        ] || []),
+      ]
+    : [];
 
   const handleInputChange = (field: string, value: string | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const isStepValid = () => {
+    if (currentStep === -1) return selectedPlatform !== "";
     switch (currentStep) {
       case 0:
         return formData.gender !== "";
       case 1:
-        return formData.humor.length > 0;
-      case 2:
         return formData.personality.length > 0;
-      case 3:
+      case 2:
         return formData.passions.length > 0;
+      case 3:
+        return true;
       case 4:
-        return true 
-      case 5:
         return formData.tone !== "";
+      case 5:
+        switch (selectedPlatform) {
+          // case "Twitter":
+          //   return formData.hashtags.length > 0;
+          // case "Instagram":
+          //   return formData.aesthetic !== "";
+          case "Dating Sites":
+            return formData.relationshipGoals !== "";
+          case "LinkedIn":
+            return formData.careerPath !== "";
+          default:
+            return true;
+        }
       default:
-        return false;
+        return true;
     }
-  }
+  };
 
   const handleNext = () => {
-    if (currentStep < steps.length - 1) {
+    if (currentStep < steps.length - 1 && isStepValid()) {
       setCurrentStep((prev) => prev + 1);
-    } else {
+    } else if (currentStep === steps.length - 1 && isStepValid()) {
       handleSubmit();
     }
   };
 
   const handleBack = () => {
-    if (currentStep > 0) {
+    if (currentStep > -1) {
       setCurrentStep((prev) => prev - 1);
-    }
-  };
-
-  const generateBios = async (data: typeof formData) => {
-    try {
-      const response = await fetch("/api/generate-bios", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      })
-      console.log('response', response)
-      if (!response.ok) {
-        throw new Error("Failed to generate bios")
-      }
-      const result = await response.json()
-      return result.response
-    } catch (error) {
-      console.error("Error generating bios:", error)
-      return []
     }
   };
 
   const handleSubmit = async () => {
     setIsGenerating(true);
     try {
-      const bios = await generateBios(formData)
-      setGeneratedBios(bios)
-    } catch (error) {
-      console.error("Error in handleSubmit:", error)
+      const response = await fetch("/api/generate-bios", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+      const result = await response.json();
+      const filteredResult = result.response.filter(
+        (bio: string) => bio !== ""
+      );
+      setGeneratedBios(filteredResult);
+    } catch (err) {
+      console.log(err);
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
   };
 
   const resetForm = () => {
-    setCurrentStep(0);
+    setCurrentStep(-1);
     setFormData({
       gender: "",
-      humor: [],
       personality: [],
       passions: [],
       hobbies: "",
       tone: "",
+      platform: "",
+      // Platform-specific fields
+      hashtags: [],
+      aesthetic: "",
+      relationshipGoals: "",
+      careerPath: "",
     });
     setGeneratedBios([]);
-  }
+  };
 
   const renderStep = () => {
+    if (currentStep === -1) {
+      return (
+        <RadioGroup
+          onValueChange={(value) => {
+            setSelectedPlatform(value);
+            handleInputChange("platform", value);
+          }}
+        >
+          {platforms.map((platform) => (
+            <div key={platform.name} className="flex items-center space-x-2">
+              <RadioGroupItem value={platform.name} id={platform.name} />
+              <Label
+                htmlFor={platform.name}
+                className="flex items-center space-x-2"
+              >
+                {platform.icon}
+                <span>{platform.name}</span>
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      );
+    }
     switch (currentStep) {
       case 0:
         return (
@@ -189,23 +270,26 @@ export default function BioGenerator() {
       case 1:
         return (
           <div className="grid grid-cols-2 gap-4">
-            {["Witty", "Sarcastic", "Goofy", "Dark humor", "Dry humor"].map(
-              (humor) => (
-                <div key={humor} className="flex items-center space-x-2">
+            {["Outgoing", "Shy", "Spontaneous", "Thoughtful", "Creative"].map(
+              (trait) => (
+                <div key={trait} className="flex items-center space-x-2">
                   <Checkbox
-                    id={humor}
+                    id={trait}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        handleInputChange("humor", [...formData.humor, humor]);
+                        handleInputChange("personality", [
+                          ...formData.personality,
+                          trait,
+                        ]);
                       } else {
                         handleInputChange(
-                          "humor",
-                          formData.humor.filter((h) => h !== humor)
+                          "personality",
+                          formData.personality.filter((t) => t !== trait)
                         );
                       }
                     }}
                   />
-                  <Label htmlFor={humor}>{humor}</Label>
+                  <Label htmlFor={trait}>{trait}</Label>
                 </div>
               )
             )}
@@ -215,44 +299,13 @@ export default function BioGenerator() {
         return (
           <div className="grid grid-cols-2 gap-4">
             {[
-              "Outgoing",
-              "Shy",
-              "Spontaneous",
-              "Thoughtful",
-              "Introverted",
-            ].map((trait) => (
-              <div key={trait} className="flex items-center space-x-2">
-                <Checkbox
-                  id={trait}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      handleInputChange("personality", [
-                        ...formData.personality,
-                        trait,
-                      ]);
-                    } else {
-                      handleInputChange(
-                        "personality",
-                        formData.personality.filter((t) => t !== trait)
-                      );
-                    }
-                  }}
-                />
-                <Label htmlFor={trait}>{trait}</Label>
-              </div>
-            ))}
-          </div>
-        );
-      case 3:
-        return (
-          <div className="grid grid-cols-2 gap-4">
-            {[
               "Traveling",
               "Art",
               "Fitness",
               "Music",
               "Food",
-              "Social causes",
+              "Technology",
+              "Movies",
             ].map((passion) => (
               <div key={passion} className="flex items-center space-x-2">
                 <Checkbox
@@ -276,7 +329,7 @@ export default function BioGenerator() {
             ))}
           </div>
         );
-      case 4:
+      case 3:
         return (
           <div className="space-y-2">
             <Label htmlFor="hobbies">What are your favorite hobbies?</Label>
@@ -287,17 +340,17 @@ export default function BioGenerator() {
             />
           </div>
         );
-      case 5:
+      case 4:
         return (
           <RadioGroup
             onValueChange={(value) => handleInputChange("tone", value)}
           >
             {[
-              "Flirty",
-              "Funny",
-              "Direct and straightforward",
-              "Romantic",
-              "Casual and relaxed",
+              "Friendly",
+              "Professional",
+              "Humorous",
+              "Inspirational",
+              "Casual",
             ].map((tone) => (
               <div key={tone} className="flex items-center space-x-2">
                 <RadioGroupItem value={tone} id={tone} />
@@ -306,66 +359,173 @@ export default function BioGenerator() {
             ))}
           </RadioGroup>
         );
+      case 5:
+        switch (selectedPlatform) {
+          case "Twitter":
+            return (
+              <div className="space-y-2">
+                <Label htmlFor="hashtags">Select your favorite hashtags</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    "TechLife",
+                    "Foodie",
+                    "TravelBug",
+                    "FitnessFanatic",
+                    "ArtLover",
+                  ].map((tag) => (
+                    <div key={tag} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={tag}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            handleInputChange("hashtags", [
+                              ...formData.hashtags,
+                              tag,
+                            ]);
+                          } else {
+                            handleInputChange(
+                              "hashtags",
+                              formData.hashtags.filter((t) => t !== tag)
+                            );
+                          }
+                        }}
+                      />
+                      <Label htmlFor={tag}>#{tag}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          case "Instagram":
+            return (
+              <div className="space-y-2">
+                <Label htmlFor="aesthetic">
+                  Emojis that represent your aesthetic
+                </Label>
+                <Input
+                  id="aesthetic"
+                  placeholder="Enter emojis separated by ,"
+                  onChange={(e) =>
+                    handleInputChange("aesthetic", e.target.value)
+                  }
+                />
+              </div>
+            );
+          case "Dating Sites":
+            return (
+              <RadioGroup
+                onValueChange={(value) =>
+                  handleInputChange("relationshipGoals", value)
+                }
+              >
+                {[
+                  "Long-term relationship",
+                  "Casual dating",
+                  "Friendship",
+                  "Not sure yet",
+                ].map((goal) => (
+                  <div key={goal} className="flex items-center space-x-2">
+                    <RadioGroupItem value={goal} id={goal} />
+                    <Label htmlFor={goal}>{goal}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            );
+          case "LinkedIn":
+            return (
+              <div className="space-y-2">
+                <Label htmlFor="careerPath">
+                  Describe your career path or industry
+                </Label>
+                <Input
+                  id="careerPath"
+                  placeholder="e.g., Marketing Professional, Software Engineer"
+                  onChange={(e) =>
+                    handleInputChange("careerPath", e.target.value)
+                  }
+                />
+              </div>
+            );
+          default:
+            return null;
+        }
       default:
         return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-2xl mx-auto text-center mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">AI Bio Generator</h1>
-        <p className="text-xl text-white font-medium">
-          {taglines[currentStep % taglines.length]}
+        <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
+          Bio Generator
+        </h1>
+        <p className="text-xl text-gray-700 dark:text-gray-200 font-medium">
+          {currentStep === -1
+            ? "Choose Your Platform"
+            : taglines[currentStep % taglines.length]}
         </p>
       </div>
       <Card className="w-full max-w-2xl mx-auto bg-white shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-gray-800 flex items-center justify-center space-x-2">
-            {steps[currentStep].icon}
-            <span>{steps[currentStep].title}</span>
+            {currentStep === -1 ? (
+              <Users className="w-6 h-6" />
+            ) : (
+              steps[currentStep]?.icon
+            )}
+            <span>
+              {currentStep === -1
+                ? "Select Platform"
+                : steps[currentStep]?.title}
+            </span>
           </CardTitle>
           <CardDescription className="text-lg text-gray-600">
-            {steps[currentStep].description}
+            {currentStep === -1
+              ? "Where will you use this bio?"
+              : steps[currentStep]?.description}
           </CardDescription>
         </CardHeader>
         <CardContent>{renderStep()}</CardContent>
         <CardFooter className="flex justify-between">
-          <Button
-            onClick={handleBack}
-            disabled={currentStep === 0}
-            variant="outline"
-            className="flex items-center space-x-1"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Back</span>
-          </Button>
-          {
-            generatedBios?.length === 0 ? (
-              <Button
-                onClick={handleNext}
-                disabled={ currentStep !== 4 && !isStepValid()}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white flex items-center space-x-1"
-              >
-                <span>
-                  {currentStep === steps.length - 1 ? "Generate Bios" : "Next"}
-                </span>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            ) : (
-              <Button 
+          {generatedBios.length === 0 ? (
+            <Button
+              onClick={handleBack}
+              disabled={currentStep === -1}
+              variant="outline"
+              className="flex items-center space-x-1"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Back</span>
+            </Button>
+          ) : (
+            <div></div>
+          )}
+          {generatedBios?.length === 0 ? (
+            <Button
+              onClick={handleNext}
+              disabled={!isStepValid()}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white flex items-center space-x-1"
+            >
+              <span>
+                {currentStep === steps.length - 1 ? "Generate Bios" : "Next"}
+              </span>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button
               onClick={resetForm}
-               className="bg-gray-500 text-white flex items-center space-x-1">
-                <span>Generate New</span>
-               </Button>
-            )
-          }
+              className="bg-black text-white flex items-center space-x-1"
+            >
+              <span>Generate New</span>
+            </Button>
+          )}
         </CardFooter>
       </Card>
       <div className="mt-4 w-full max-w-2xl mx-auto">
         <Progress
-          value={((currentStep + 1) / steps.length) * 100}
-          className="w-full h-2 bg-white/30"
+          value={((currentStep + 2) / (steps.length + 1)) * 100}
+          className="w-full h-2 bg-gray-300 dark:bg-gray-700"
         />
       </div>
       {isGenerating && (
@@ -373,11 +533,11 @@ export default function BioGenerator() {
           <Loader2 className="w-16 h-16 text-white animate-spin" />
         </div>
       )}
-              <Toaster
-          position="top-center"
-          reverseOrder={false}
-          toastOptions={{ duration: 2000 }}
-        />
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        toastOptions={{ duration: 2000 }}
+      />
       {generatedBios?.length > 0 && (
         <Card className="w-full max-w-2xl mx-auto mt-8 bg-white shadow-xl">
           <CardHeader>
